@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인스타 카드뉴스 생성기 - Editor Mode</title>
+<!-- html2canvas for image export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg-dark: #121212;
+    --card-bg: #1a1a1a;
+    --accent: #e50914;
+    --text-main: #f5f5f5;
+    --text-sub: #a0a0a0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif; }
+  body { background: var(--bg-dark); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+  /* 좌측 편집 패널 */
+  .editor-sidebar {
+    width: 420px;
+    background: #18181b;
+    border-right: 1px solid #27272a;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .editor-sidebar h2 { font-size: 1.1rem; color: var(--accent); margin-bottom: 4px; }
+  .control-group { background: #222226; padding: 14px; border-radius: 8px; border: 1px solid #333; }
+  .control-group label { display: block; font-size: 0.8rem; color: var(--text-sub); margin-bottom: 6px; font-weight: bold; }
+  input[type="text"], textarea, input[type="file"] {
+    width: 100%;
+    background: #121212;
+    border: 1px solid #3f3f46;
+    color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+  }
+  textarea { resize: vertical; min-height: 60px; line-height: 1.4; }
+  .btn-action {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.85rem;
+    width: 100%;
+    transition: opacity 0.2s;
+  }
+  .btn-action:hover { opacity: 0.9; }
+
+  /* 우측 미리보기 영역 */
+  .preview-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+    background: #09090b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+  .card-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .card-label { font-size: 0.8rem; color: var(--text-sub); font-weight: bold; }
+
+  /* 인스타 4:5 카드 (1080x1350 비율 축소판: 400x500) */
+  .insta-card {
+    width: 400px;
+    height: 500px;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    border: 1px solid #27272a;
+  }
+  .insta-card .bg-img {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    filter: brightness(0.7);
+  }
+  .insta-card .overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.95) 100%);
+    z-index: 2;
+  }
+  .insta-card .card-content {
+    position: relative;
+    z-index: 3;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .badge {
+    align-self: flex-start;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+  }
+  .card-title { font-size: 1.25rem; font-weight: 800; line-height: 1.35; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+  .card-desc { font-size: 0.85rem; color: #d4d4d8; line-height: 1.5; white-space: pre-line; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+  .card-footer {
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: #a1a1aa;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 에디터 제어창 -->
+  <div class="editor-sidebar">
+    <h2>인스타 카드뉴스 에디터</h2>
+    <p style="font-size: 0.75rem; color: #71717a; margin-bottom: 8px;">텍스트와 이미지를 직접 수정하면 우측에 실시간 반영됩니다.</p>
+    
+    <div id="controls-list"></div>
+
+    <button class="btn-action" onclick="downloadAllCards()">전체 카드 일괄 다운로드 (.png)</button>
+  </div>
+
+  <!-- 우측 미리보기 -->
+  <div class="preview-container" id="preview-container"></div>
+
+<script>
+// 기본 기사 및 비주얼 초기 세팅 데이터
+const initialData = [
+  {
+    type: "포스터 (커버)",
+    badge: "공식 예고편 공개",
+    title: "“내가 쓴 것 중 가장 어두운 작품”\n로버트 에거스 신작 〈웨어울프〉",
+    desc: "13세기 영국, 마을의 끔찍한 민담이 현실이 된다.\n올해 크리스마스를 집어삼킬 최고의 핏빛 공포.",
+    img: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    type: "스틸 1 (캐스팅)",
+    badge: "CASTING",
+    title: "저주받은 농부로 변신한\n아론 테일러-존슨의 광기",
+    desc: "〈노스페라투〉에 이어 타이틀 크리처 역 완벽 소화.\n처절한 변신과 에거스 사단 3인방 재결합.",
+    img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    type: "스틸 2 (고증 & 화면)",
+    badge: "DIRECTING",
+    title: "옥스퍼드대 자문 중세 영어\n& 4:3 화면비의 극단적 질감",
+    desc: "아이슬란드 시인 숀(Sjón) 공동 각본 집필.\n고증을 거친 중세 방언과 특유의 거친 필름 텍스처.",
+    img: "https://images.unsplash.com/photo-1514539079130-25950c84af65?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    type: "스틸 3 (스토리)",
+    badge: "STORYLINE",
+    title: "“인간의 살점을 먹어라,\n그러면 네 칼을 돌려주마”",
+    desc: "헌신과 저주, 그리고 내면의 악마를 다룬 심리 공포.\n단순한 크리처물을 넘어선 처절한 서사.",
+    img: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    type: "스틸 4 (개봉 일정)",
+    badge: "RELEASE",
+    title: "2026 크리스마스는\n‘늑대인간’이 장악한다",
+    desc: "🇺🇸 북미: 2026. 12. 25 개봉 확정\n🇬🇧 영국: 2027. 01. 01 개봉 예정\n(제작/배급: 포커스 피처스)",
+    img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    type: "스틸 5 (아웃트로)",
+    badge: "EXPECTATION",
+    title: "〈노스페라투〉를 잇는\n새로운 중세 호러의 도래",
+    desc: "예고편 풀버전은 프로필 링크에서 감상 가능합니다.\n댓글로 기대평을 남겨주세요!",
+    img: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80"
+  }
+];
+
+const controlsList = document.getElementById('controls-list');
+const previewContainer = document.getElementById('preview-container');
+
+// 카드 및 에디터 렌더링
+function renderApp() {
+  controlsList.innerHTML = '';
+  previewContainer.innerHTML = '';
+
+  initialData.forEach((item, index) => {
+    // 1. 에디터 컨트롤 생성
+    const group = document.createElement('div');
+    group.className = 'control-group';
+    group.innerHTML = `
+      <label>[${index + 1}] ${item.type}</label>
+      <input type="text" placeholder="상단 뱃지" value="${item.badge}" oninput="updateData(${index}, 'badge', this.value)">
+      <input type="text" placeholder="메인 타이틀" value="${item.title.replace(/\n/g, '\\n')}" oninput="updateData(${index}, 'title', this.value.replace(/\\\\n/g, '\\n'))">
+      <textarea placeholder="요약 설명">${item.desc}</textarea>
+      <label style="font-size:0.7rem; margin-top:4px;">스틸컷 교체 (파일 선택)</label>
+      <input type="file" accept="image/*" onchange="uploadImage(${index}, this)">
+      <button class="btn-action" style="padding:6px; font-size:0.75rem; background:#3f3f46;" onclick="downloadSingleCard(${index})">이 카드 다운로드</button>
+    `;
+    group.querySelector('textarea').addEventListener('input', (e) => updateData(index, 'desc', e.target.value));
+    controlsList.appendChild(group);
+
+    // 2. 카드 미리보기 생성
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card-wrapper';
+    wrapper.innerHTML = `
+      <div class="card-label">${item.type} (4:5)</div>
+      <div class="insta-card" id="card-${index}">
+        <img class="bg-img" id="img-${index}" src="${item.img}" alt="Background">
+        <div class="overlay"></div>
+        <div class="card-content">
+          <div class="badge" id="badge-${index}">${item.badge}</div>
+          <div class="card-title" id="title-${index}">${item.title.replace(/\n/g, '<br>')}</div>
+          <div class="card-desc" id="desc-${index}">${item.desc}</div>
+          <div class="card-footer">
+            <span>KINOCINE NEWS</span>
+            <span>Focus Features</span>
+          </div>
+        </div>
+      </div>
+    `;
+    previewContainer.appendChild(wrapper);
+  });
+}
+
+function updateData(index, field, value) {
+  initialData[index][field] = value;
+  if(field === 'badge') document.getElementById(`badge-${index}`).innerText = value;
+  if(field === 'title') document.getElementById(`title-${index}`).innerHTML = value.replace(/\n/g, '<br>');
+  if(field === 'desc') document.getElementById(`desc-${index}`).innerText = value;
+}
+
+function uploadImage(index, input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById(`img-${index}`).src = e.target.result;
+      initialData[index].img = e.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+async function downloadSingleCard(index) {
+  const card = document.getElementById(`card-${index}`);
+  const canvas = await html2canvas(card, { scale: 2.7 }); // 고해상도 (1080x1350 대응)
+  const link = document.createElement('a');
+  link.download = `insta-card-${index + 1}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function downloadAllCards() {
+  for (let i = 0; i < initialData.length; i++) {
+    await downloadSingleCard(i);
+    await new Promise(r => setTimeout(r, 400));
+  }
+}
+
+renderApp();
+</script>
+</body>
+</html>
