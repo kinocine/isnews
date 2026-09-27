@@ -2,256 +2,450 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>인스타 연예뉴스 카드뉴스 제작기</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kinocine InstaPress Pro - 연예뉴스 카드/릴스 제작기</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-  :root { --primary: #e50914; --dark: #121212; --panel: #1e1e1e; --border: #333; --text: #eee; }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; }
-  body { background: var(--dark); color: var(--text); padding: 24px; }
-  h1, h2 { color: #fff; margin-bottom: 12px; }
-
-  /* 1. 상단 원스톱 입력 섹션 */
-  .input-dashboard {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  :root {
+    --accent: #ff2a2a;
+    --accent-glow: rgba(255, 42, 42, 0.4);
+    --bg-dark: #0a0a0a;
+    --panel-bg: #141414;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --text-main: #f5f5f5;
+    --text-muted: #888888;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif; }
+  body { background: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 20px; }
+  
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color);
+  }
+  .logo-box { display: flex; align-items: center; gap: 10px; }
+  .logo-badge { background: var(--accent); color: #fff; font-weight: 900; font-size: 11px; padding: 4px 8px; border-radius: 4px; }
+  .logo-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.5px; }
+  
+  /* 1. 상단 입력 대시보드 */
+  .dashboard {
+    background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px;
     padding: 24px; margin-bottom: 30px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px;
   }
-  .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-  label { font-size: 0.85rem; font-weight: bold; color: #aaa; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  label { font-size: 0.8rem; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
   input[type="text"], textarea {
-    background: #111; border: 1px solid var(--border); color: #fff;
-    padding: 10px; border-radius: 6px; font-size: 0.9rem;
+    background: #0d0d0d; border: 1px solid var(--border-color); color: #fff;
+    padding: 10px 12px; border-radius: 6px; font-size: 0.85rem; outline: none; transition: border-color 0.2s;
   }
-  textarea { resize: vertical; height: 120px; line-height: 1.4; }
-  
-  /* 미디어 등록 영역 */
+  input[type="text"]:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+
+  /* 미디어 슬롯 6개 */
   .media-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .slot {
-    border: 1px dashed #555; border-radius: 6px; padding: 10px; text-align: center;
-    background: #181818; cursor: pointer; position: relative;
+    border: 1px dashed var(--border-color); border-radius: 8px; padding: 8px;
+    text-align: center; background: #0d0d0d; cursor: pointer; position: relative; transition: border-color 0.2s;
   }
+  .slot:hover { border-color: var(--accent); }
   .slot input { display: none; }
-  .slot span { font-size: 0.75rem; color: #bbb; display: block; margin-bottom: 4px; }
+  .slot span { font-size: 0.75rem; color: #888; display: block; font-weight: 600; margin-bottom: 4px; }
   .slot .thumb-prev { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; display: none; margin-top: 4px; }
 
-  /* 액션 버튼 */
-  .action-btns { grid-column: span 2; display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px; }
+  /* 액션 바 */
+  .action-bar {
+    grid-column: span 2; display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 6px;
+  }
   .btn {
-    background: var(--primary); color: #fff; border: none; padding: 12px 20px;
-    border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.95rem;
+    background: var(--accent); color: #fff; border: none; padding: 10px 18px;
+    border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: 0.2s;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .btn-sub { background: #333; }
-  .btn:hover { opacity: 0.9; }
+  .btn:hover { opacity: 0.9; box-shadow: 0 0 15px var(--accent-glow); }
+  .btn-sub { background: #222; border: 1px solid var(--border-color); }
+  .btn-sub:hover { background: #333; }
 
-  /* 2. 하단 카드 미리보기 & 인라인 편집 섹션 */
-  .preview-section { margin-top: 20px; }
+  /* 2. 카드 캔버스 프리뷰 및 인라인 편집 */
+  .ratio-switch { display: flex; gap: 8px; margin-bottom: 16px; }
   .cards-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 20px;
   }
-  .card-box {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  .card-item {
+    background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px;
     padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px;
   }
   
-  /* 인스타 4:5 캔버스 규격 (320x400) */
-  .insta-canvas {
-    width: 320px; height: 400px; background: #000; position: relative;
+  /* 카드 캔버스 규격 (기본 4:5 = 300x375) */
+  .canvas-box {
+    width: 300px; height: 375px; background: #000; position: relative;
     overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid #222; transition: height 0.2s;
   }
-  .insta-canvas img.bg {
+  .canvas-box.story { height: 533px; } /* 9:16 비율 */
+  .canvas-box img.bg-layer {
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: brightness(0.65);
   }
-  .insta-canvas .overlay {
+  .canvas-box .gradient-overlay {
     position: absolute; inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.95) 100%);
     z-index: 2;
   }
-  .insta-canvas .content { position: relative; z-index: 3; padding: 18px; }
-  .badge { background: var(--primary); font-size: 0.65rem; padding: 3px 6px; border-radius: 3px; font-weight: bold; display: inline-block; margin-bottom: 6px; }
-  .title { font-size: 1.05rem; font-weight: bold; line-height: 1.35; margin-bottom: 6px; color: #fff; }
-  .desc { font-size: 0.75rem; color: #ccc; line-height: 1.4; white-space: pre-line; }
-
-  /* 카드별 인라인 수정 폼 */
-  .card-edit-form { width: 100%; display: flex; flex-direction: column; gap: 6px; }
-  .card-edit-form input, .card-edit-form textarea {
-    padding: 6px; font-size: 0.8rem; height: auto;
+  .canvas-box .content-layer { position: relative; z-index: 3; padding: 18px; }
+  .badge-tag {
+    background: var(--accent); font-size: 0.65rem; padding: 3px 6px; border-radius: 3px;
+    font-weight: 800; display: inline-block; margin-bottom: 6px; letter-spacing: 0.5px;
   }
-  .card-edit-form textarea { height: 48px; }
+  .canvas-title { font-size: 1.05rem; font-weight: 800; line-height: 1.35; margin-bottom: 6px; color: #fff; }
+  .canvas-desc { font-size: 0.75rem; color: #ccc; line-height: 1.45; white-space: pre-line; }
+  .canvas-footer {
+    margin-top: 10px; font-size: 0.65rem; color: #777; border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 6px; display: flex; justify-content: space-between; font-family: monospace;
+  }
+
+  /* 인라인 수정 폼 */
+  .card-form { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+  .card-form input, .card-form textarea { font-size: 0.75rem; padding: 6px 8px; }
+  .card-form textarea { min-height: 48px; }
+
+  /* 3. 하단 유튜브 플레이어 & 릴스 컷리스트 섹션 */
+  .reels-section {
+    margin-top: 40px; background: var(--panel-bg); border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 24px; display: grid; grid-template-columns: 400px 1fr; gap: 24px;
+  }
+  .yt-frame-box { aspect-ratio: 16/9; width: 100%; background: #000; border-radius: 8px; overflow: hidden; }
+  .reels-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .reels-table th, .reels-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+  .reels-table th { color: #888; font-family: monospace; }
 </style>
 </head>
 <body>
 
-  <h1>🎬 인스타 전용 뉴스 카드 생성기 (포스터 1장 + 스틸 5장)</h1>
+  <header>
+    <div class="logo-box">
+      <span class="logo-badge">KINOCINE</span>
+      <span class="logo-title">InstaPress Editor Studio</span>
+    </div>
+    <div style="font-size:0.8rem; color:#888;">연예뉴스 텍스트/영상 원스톱 카드뉴스 & 릴스 툴</div>
+  </header>
 
   <!-- 1. 원스톱 입력 대시보드 -->
-  <div class="input-dashboard">
+  <section class="dashboard">
     <div>
       <div class="form-group">
         <label>기사 제목</label>
-        <input type="text" id="raw-title" value="늑대인간 아론 테일러-존슨, 로버트 에거스 감독 신작 '웨어울프'">
+        <input type="text" id="raw-title" placeholder="기사 제목을 입력하세요">
       </div>
       <div class="form-group">
-        <label>기사 원문</label>
-        <textarea id="raw-article">영화 '노스페라투' 로버트 에거스 감독의 차기작 '웨어울프'(Werewulf)의 공식 예고편이 공개됐다.
-
-포커스 피처스가 공개한 예고편은 13세기 영국을 배경으로 마을의 민담이 끔찍한 현실이 되는 과정을 그린다. '노스페라투'에서 함께했던 아론 테일러-존슨이 저주받은 농부로 분해 처절한 변신을 선보이며 타이틀 크리처를 연기한다.
-
-테일러-존슨을 비롯해 릴리-로즈 뎁, 윌렘 대포가 다시 뭉쳐 에거스 사단을 완성했다. 에거스 감독은 각본을 아이슬란드 시인 숀(Sjón)과 공동 집필했으며, "내가 쓴 것 중 가장 어두운 작품"이라고 직접 밝힌 바 있다.
-
-영화는 고증을 위해 옥스퍼드대 교수진과 협업해 중세 영어로 대사를 구성했고, 특유의 4:3 화면비와 거친 질감으로 중세의 공포를 담아냈다. 포커스 피처스는 "헌신과 저주, 내면의 악마에 대한 처절한 이야기"라고 소개했다.
-
-'웨어울프'는 2026년 12월 25일 미국 극장 개봉을 확정했으며, 영국에서는 2027년 1월 1일 개봉 예정이다. 지난해 크리스마스를 뱀파이어로 물들였던 '노스페라투'에 이어, 올해 크리스마스는 늑대인간이 극장가를 장악할 전망이다.</textarea>
-      </div>
-      <div class="form-group">
-        <label>유튜브 영상 URL</label>
-        <div style="display:flex; gap:6px;">
-          <input type="text" id="yt-url" value="https://youtu.be/CL1EFACsWag" style="flex:1;">
-          <button class="btn btn-sub" onclick="applyYoutubeThumbnail()">썸네일 추출 적용</button>
+        <label>유튜브 예고편 / 영상 URL</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="raw-yt" placeholder="https://youtu.be/... 또는 https://www.youtube.com/watch?v=..." style="flex:1;">
+          <button class="btn btn-sub" onclick="applyYoutube()">영상 연동 & 썸네일 추출</button>
         </div>
+      </div>
+      <div class="form-group">
+        <label>기사 전문 본문</label>
+        <textarea id="raw-content" placeholder="기사 본문을 붙여넣으세요. '카드 6장 일괄 자동분배' 버튼을 누르면 문맥에 맞게 내용이 카드에 자동 배정됩니다."></textarea>
       </div>
     </div>
 
     <div>
-      <label>이미지 슬롯 (클릭하여 파일 등록)</label>
+      <label>이미지 슬롯 (클릭하여 파일 등록 • 미등록 시 이전 스틸 자동 상속)</label>
       <div class="media-slots" style="margin-top:8px;">
         <div class="slot" onclick="document.getElementById('file-0').click()">
-          <span>[포스터/커버]</span>
-          <input type="file" id="file-0" accept="image/*" onchange="loadMedia(0, this)">
+          <span>[커버/포스터]</span>
+          <input type="file" id="file-0" accept="image/*" onchange="uploadImage(0, this)">
           <img id="prev-0" class="thumb-prev">
         </div>
         <div class="slot" onclick="document.getElementById('file-1').click()">
           <span>[스틸 1]</span>
-          <input type="file" id="file-1" accept="image/*" onchange="loadMedia(1, this)">
+          <input type="file" id="file-1" accept="image/*" onchange="uploadImage(1, this)">
           <img id="prev-1" class="thumb-prev">
         </div>
         <div class="slot" onclick="document.getElementById('file-2').click()">
           <span>[스틸 2]</span>
-          <input type="file" id="file-2" accept="image/*" onchange="loadMedia(2, this)">
+          <input type="file" id="file-2" accept="image/*" onchange="uploadImage(2, this)">
           <img id="prev-2" class="thumb-prev">
         </div>
         <div class="slot" onclick="document.getElementById('file-3').click()">
           <span>[스틸 3]</span>
-          <input type="file" id="file-3" accept="image/*" onchange="loadMedia(3, this)">
+          <input type="file" id="file-3" accept="image/*" onchange="uploadImage(3, this)">
           <img id="prev-3" class="thumb-prev">
         </div>
         <div class="slot" onclick="document.getElementById('file-4').click()">
           <span>[스틸 4]</span>
-          <input type="file" id="file-4" accept="image/*" onchange="loadMedia(4, this)">
+          <input type="file" id="file-4" accept="image/*" onchange="uploadImage(4, this)">
           <img id="prev-4" class="thumb-prev">
         </div>
         <div class="slot" onclick="document.getElementById('file-5').click()">
-          <span>[스틸 5]</span>
-          <input type="file" id="file-5" accept="image/*" onchange="loadMedia(5, this)">
+          <span>[스틸 5/영상]</span>
+          <input type="file" id="file-5" accept="image/*" onchange="uploadImage(5, this)">
           <img id="prev-5" class="thumb-prev">
         </div>
       </div>
     </div>
 
-    <div class="action-btns">
-      <button class="btn btn-sub" onclick="copyCaption()">📋 인스타 캡션 복사</button>
-      <button class="btn" onclick="downloadAll()">💾 카드 6장 전체 다운로드 (.png)</button>
+    <div class="action-bar">
+      <button class="btn btn-sub" onclick="autoDistributeArticle()">⚡ 기사 내용 카드 6장에 일괄 자동분배</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-sub" onclick="copyInstaCaption()">📋 인스타 캡션 복사</button>
+        <button class="btn" onclick="downloadAllCards()">💾 6장 고화질 일괄 다운로드 (.png)</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. 카드 캔버스 & 인라인 편집기 -->
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h2>카드뉴스 실시간 편집 (인라인 수정 가능)</h2>
+    <div class="ratio-switch">
+      <button class="btn btn-sub" id="btn-feed" onclick="changeRatio('feed')">피드 (4:5)</button>
+      <button class="btn btn-sub" id="btn-story" onclick="changeRatio('story')">릴스/스토리 (9:16)</button>
     </div>
   </div>
 
-  <!-- 2. 카드 6장 미리보기 & 인라인 편집기 -->
-  <h2>카드뉴스 구성 (4:5 비율 / 인라인 편집 가능)</h2>
   <div class="cards-grid" id="cards-container"></div>
 
+  <!-- 3. 하단 유튜브 플레이어 & 30초 릴스 컷리스트 -->
+  <section class="reels-section">
+    <div>
+      <label style="margin-bottom:8px; display:block;">연동된 예고편 플레이어</label>
+      <div class="yt-frame-box">
+        <iframe id="yt-player" width="100%" height="100%" src="about:blank" frameborder="0" allowfullscreen></iframe>
+      </div>
+      <p style="font-size:0.75rem; color:#777; margin-top:8px;">영상을 확인하며 우측 릴스 타임코드를 점검하세요.</p>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <label>30초 릴스 컷 리스트 & 자막 가이드</label>
+        <button class="btn btn-sub" style="font-size:0.75rem; padding:6px 12px;" onclick="exportCutList()">컷 리스트 TXT 내보내기</button>
+      </div>
+      <table class="reels-table">
+        <thead>
+          <tr>
+            <th width="80">구간</th>
+            <th width="110">역할</th>
+            <th>화면 연출 및 추천 자막</th>
+          </tr>
+        </thead>
+        <tbody id="reels-tbody">
+          <tr>
+            <td>00~04초</td>
+            <td>HOOK (도입)</td>
+            <td id="reel-t1">헤드라인 제시 및 핵심 비주얼 줌인</td>
+          </tr>
+          <tr>
+            <td>04~12초</td>
+            <td>CAST & ISSUE</td>
+            <td id="reel-t2">핵심 인물 변신 및 영화 스토리 요약</td>
+          </tr>
+          <tr>
+            <td>12~22초</td>
+            <td>HIGHLIGHT</td>
+            <td id="reel-t3">고증, 비주얼 포인트 및 예고편 클라이맥스</td>
+          </tr>
+          <tr>
+            <td>22~30초</td>
+            <td>CTA & OUTRO</td>
+            <td id="reel-t4">개봉 일정 안내 및 프로필 링크 유도</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
 <script>
-// 초기 카드 기본값
-const cardConfigs = [
-  { badge: "OFFICIAL TRAILER", title: "로버트 에거스 신작\n〈웨어울프〉 예고편 공개", desc: "13세기 영국, 마을의 민담이 현실이 된다.\n올해 크리스마스 극장가를 장악할 공포.", img: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80" },
-  { badge: "CASTING", title: "저주받은 농부로 분한\n아론 테일러-존슨의 변신", desc: "〈노스페라투〉에 이어 타이틀 크리처 완벽 소화.\n릴리-로즈 뎁, 윌렘 대포 재결합.", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80" },
-  { badge: "DIRECTING", title: "“내가 쓴 것 중\n가장 어두운 작품”", desc: "시인 숀(Sjón)과 공동 집필한 각본.\n옥스퍼드대 자문 중세 영어 대사 구성.", img: "https://images.unsplash.com/photo-1514539079130-25950c84af65?auto=format&fit=crop&w=600&q=80" },
-  { badge: "VISUAL", title: "4:3 화면비와 거친 질감\n중세의 날 것 그대로", desc: "단순 크리처물을 넘어선 심리 공포.\n헌신과 저주, 내면의 악마를 다룬 서사.", img: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=600&q=80" },
-  { badge: "RELEASE", title: "2026. 12. 25\n북미 극장 개봉 확정", desc: "지난해 뱀파이어에 이어\n올해는 처절한 늑대인간의 차례.", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80" },
-  { badge: "TRAILER", title: "유튜브 공식 예고편\n지금 바로 감상", desc: "프로필 링크에서 풀버전 확인 가능.\n댓글로 기대평을 남겨주세요!", img: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80" }
+// 기본 6장 구조 (특정 영화 정보 없이 범용 템플릿으로 세팅)
+const defaultPlaceholderImg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='500' fill='%231a1a1a'><rect width='100%' height='100%'/><text x='50%' y='50%' fill='%23444' font-size='18' text-anchor='middle' font-family='sans-serif'>이미지를 등록하세요</text></svg>";
+
+let currentRatio = 'feed';
+let cards = [
+  { badge: "NEWS", title: "메인 헤드라인을\n입력하세요", desc: "기사의 핵심 내용을 간략하게 요약합니다.", img: defaultPlaceholderImg },
+  { badge: "POINT 01", title: "첫 번째 핵심 포인트", desc: "인물 변신, 캐스팅 또는 사건 개요를 적습니다.", img: defaultPlaceholderImg },
+  { badge: "POINT 02", title: "두 번째 핵심 포인트", desc: "감독의 연출 의도나 독특한 제작 비화를 적습니다.", img: defaultPlaceholderImg },
+  { badge: "POINT 03", title: "세 번째 핵심 포인트", desc: "주요 명대사나 명장면을 소개합니다.", img: defaultPlaceholderImg },
+  { badge: "RELEASE", title: "개봉 및 일정 정보", desc: "개봉일 및 배급 정보를 요약합니다.", img: defaultPlaceholderImg },
+  { badge: "TRAILER", title: "공식 예고편 공개", desc: "프로필 링크에서 풀버전을 감상할 수 있습니다.", img: defaultPlaceholderImg }
 ];
 
 function renderCards() {
   const container = document.getElementById('cards-container');
   container.innerHTML = '';
-  cardConfigs.forEach((cfg, idx) => {
-    const box = document.createElement('div');
-    box.className = 'card-box';
-    box.innerHTML = `
-      <div class="insta-canvas" id="canvas-${idx}">
-        <img class="bg" id="card-img-${idx}" src="${cfg.img}">
-        <div class="overlay"></div>
-        <div class="content">
-          <div class="badge" id="c-badge-${idx}">${cfg.badge}</div>
-          <div class="title" id="c-title-${idx}">${cfg.title.replace(/\n/g, '<br>')}</div>
-          <div class="desc" id="c-desc-${idx}">${cfg.desc}</div>
+  cards.forEach((c, idx) => {
+    const item = document.createElement('div');
+    item.className = 'card-item';
+    item.innerHTML = `
+      <div class="canvas-box ${currentRatio === 'story' ? 'story' : ''}" id="canvas-${idx}">
+        <img class="bg-layer" id="card-img-${idx}" src="${getEffectiveImg(idx)}">
+        <div class="gradient-overlay"></div>
+        <div class="content-layer">
+          <div class="badge-tag" id="badge-view-${idx}">${c.badge}</div>
+          <div class="canvas-title" id="title-view-${idx}">${c.title.replace(/\n/g, '<br>')}</div>
+          <div class="canvas-desc" id="desc-view-${idx}">${c.desc}</div>
+          <div class="canvas-footer">
+            <span>KINOCINE NEWS</span>
+            <span>CARD ${idx + 1}/6</span>
+          </div>
         </div>
       </div>
-      <div class="card-edit-form">
-        <input type="text" value="${cfg.badge}" oninput="updateCard(${idx}, 'badge', this.value)">
-        <input type="text" value="${cfg.title.replace(/\n/g, '\\n')}" oninput="updateCard(${idx}, 'title', this.value.replace(/\\\\n/g, '\n'))">
-        <textarea oninput="updateCard(${idx}, 'desc', this.value)">${cfg.desc}</textarea>
-        <button class="btn btn-sub" style="padding:6px; font-size:0.75rem;" onclick="downloadSingle(${idx})">이 카드 다운로드</button>
+      <div class="card-form">
+        <input type="text" value="${c.badge}" placeholder="상단 뱃지" oninput="updateCardData(${idx}, 'badge', this.value)">
+        <input type="text" value="${c.title.replace(/\n/g, '\\n')}" placeholder="메인 타이틀 (\\n 줄바꿈)" oninput="updateCardData(${idx}, 'title', this.value.replace(/\\\\n/g, '\n'))">
+        <textarea placeholder="요약 설명" oninput="updateCardData(${idx}, 'desc', this.value)">${c.desc}</textarea>
+        <button class="btn btn-sub" style="font-size:0.75rem; padding:6px;" onclick="downloadSingleCard(${idx})">이 카드 다운로드</button>
       </div>
     `;
-    container.appendChild(box);
+    container.appendChild(item);
   });
 }
 
-function updateCard(idx, key, val) {
-  cardConfigs[idx][key] = val;
-  if(key === 'badge') document.getElementById(`c-badge-${idx}`).innerText = val;
-  if(key === 'title') document.getElementById(`c-title-${idx}`).innerHTML = val.replace(/\n/g, '<br>');
-  if(key === 'desc') document.getElementById(`c-desc-${idx}`).innerText = val;
+// 미등록 시 이전 슬롯의 이미지를 상속(Fallback)받는 함수
+function getEffectiveImg(idx) {
+  for (let i = idx; i >= 0; i--) {
+    if (cards[i].img && cards[i].img !== defaultPlaceholderImg) {
+      return cards[i].img;
+    }
+  }
+  return defaultPlaceholderImg;
 }
 
-function loadMedia(idx, input) {
+function updateCardData(idx, field, val) {
+  cards[idx][field] = val;
+  if (field === 'badge') document.getElementById(`badge-view-${idx}`).innerText = val;
+  if (field === 'title') document.getElementById(`title-view-${idx}`).innerHTML = val.replace(/\n/g, '<br>');
+  if (field === 'desc') document.getElementById(`desc-view-${idx}`).innerText = val;
+}
+
+function uploadImage(idx, input) {
   if (input.files && input.files[0]) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      document.getElementById(`card-img-${idx}`).src = e.target.result;
+      cards[idx].img = e.target.result;
       const prev = document.getElementById(`prev-${idx}`);
       prev.src = e.target.result;
       prev.style.display = 'block';
-      cardConfigs[idx].img = e.target.result;
+      // 이후 카드들 중 이미지가 비어있는 경우 새로고침
+      renderCards();
     };
     reader.readAsDataURL(input.files[0]);
   }
 }
 
-function applyYoutubeThumbnail() {
-  const url = document.getElementById('yt-url').value;
+function changeRatio(ratio) {
+  currentRatio = ratio;
+  renderCards();
+}
+
+// 기사 전문을 문단 및 온점 단위로 쪼개어 카드 6장에 고르게 분배
+function autoDistributeArticle() {
+  const title = document.getElementById('raw-title').value.trim();
+  const content = document.getElementById('raw-content').value.trim();
+
+  if (!content) {
+    alert("기사 본문을 먼저 입력해 주세요.");
+    return;
+  }
+
+  if (title) {
+    cards[0].badge = "BREAKING";
+    cards[0].title = title;
+  }
+
+  // 문단 나누기
+  let paragraphs = content.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  
+  if (paragraphs.length >= 4) {
+    cards[0].desc = paragraphs[0];
+    cards[1].desc = paragraphs[1];
+    cards[2].desc = paragraphs[2];
+    cards[3].desc = paragraphs[3];
+    if (paragraphs[4]) cards[4].desc = paragraphs[4];
+  } else {
+    // 문단이 부족하면 문장 단위 분할
+    let sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
+    let step = Math.max(1, Math.floor(sentences.length / 5));
+    cards[0].desc = sentences.slice(0, step).join(' ').trim();
+    cards[1].desc = sentences.slice(step, step * 2).join(' ').trim();
+    cards[2].desc = sentences.slice(step * 2, step * 3).join(' ').trim();
+    cards[3].desc = sentences.slice(step * 3, step * 4).join(' ').trim();
+    cards[4].desc = sentences.slice(step * 4).join(' ').trim();
+  }
+
+  // 릴스 가이드 텍스트 자동 반영
+  document.getElementById('reel-t1').innerText = cards[0].title;
+  document.getElementById('reel-t2').innerText = cards[1].desc.slice(0, 45) + "...";
+  document.getElementById('reel-t3').innerText = cards[2].desc.slice(0, 45) + "...";
+  document.getElementById('reel-t4').innerText = "개봉 정보 및 예고편 확인 유도";
+
+  renderCards();
+  alert("기사 내용이 6장의 카드에 자동 배분되었습니다. 필요에 따라 아래 입력창에서 수정하세요.");
+}
+
+function applyYoutube() {
+  const url = document.getElementById('raw-yt').value.trim();
   let videoId = "";
   if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1].split("?")[0];
   else if (url.includes("watch?v=")) videoId = url.split("watch?v=")[1].split("&")[0];
 
   if (videoId) {
+    // iframe 플레이어 연동
+    document.getElementById('yt-player').src = `https://www.youtube.com/embed/${videoId}?mute=1`;
+    // 썸네일 자동 적용 (6번 카드)
     const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    // 마지막 6번째 카드에 자동 세팅
-    document.getElementById('card-img-5').src = thumbUrl;
-    cardConfigs[5].img = thumbUrl;
-    alert("6번(예고편) 카드의 배경으로 유튜브 썸네일을 적용했습니다.");
+    cards[5].img = thumbUrl;
+    const prev5 = document.getElementById('prev-5');
+    prev5.src = thumbUrl;
+    prev5.style.display = 'block';
+    renderCards();
+    alert("유튜브 플레이어가 연동되었으며, 6번 카드 배경으로 고화질 썸네일을 등록했습니다.");
   } else {
     alert("올바른 유튜브 링크를 입력하세요.");
   }
 }
 
-async function downloadSingle(idx) {
+async function downloadSingleCard(idx) {
   const node = document.getElementById(`canvas-${idx}`);
-  const canvas = await html2canvas(node, { scale: 3.375 }); // 1080x1350 대응
+  const scaleVal = currentRatio === 'feed' ? 3.6 : 3.6; // 1080px 고화질 출력
+  const canvas = await html2canvas(node, { scale: scaleVal });
   const link = document.createElement('a');
-  link.download = `insta_news_${idx + 1}.png`;
+  link.download = `card_${idx + 1}_${currentRatio}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
 
-async function downloadAll() {
-  for (let i = 0; i < cardConfigs.length; i++) {
-    await downloadSingle(i);
-    await new Promise(r => setTimeout(r, 350));
+async function downloadAllCards() {
+  for (let i = 0; i < cards.length; i++) {
+    await downloadSingleCard(i);
+    await new Promise(r => setTimeout(r, 400));
   }
 }
 
-function copyCaption() {
-  const cap = `🩸 ${document.getElementById('raw-title').value}\n\n${document.getElementById('raw-article').value.substring(0, 180)}...\n\n🎬 예고편 링크: ${document.getElementById('yt-url').value}\n\n#영화 #신작영화 #카드뉴스`;
-  navigator.clipboard.writeText(cap);
+function copyInstaCaption() {
+  const title = document.getElementById('raw-title').value.trim() || cards[0].title;
+  const yt = document.getElementById('raw-yt').value.trim();
+  const summary = cards.slice(0, 4).map((c, i) => `▪️ ${c.title.replace(/\n/g, ' ')}\n   ${c.desc}`).join('\n\n');
+
+  const caption = `🎬 ${title}\n\n${summary}\n\n—\n예고편 및 상세 소식은 프로필 링크에서 확인하세요!\n${yt ? `🔗 영상 링크: ${yt}` : ''}\n\n#영화 #연예뉴스 #영화추천 #신작 #키노시네`;
+  navigator.clipboard.writeText(caption);
   alert("인스타그램 캡션이 클립보드에 복사되었습니다!");
+}
+
+function exportCutList() {
+  const title = document.getElementById('raw-title').value.trim() || "영화 예고편";
+  const yt = document.getElementById('raw-yt').value.trim();
+  let txt = `[30초 릴스 컷 편집 가이드 / CapCut & Premiere]\n`;
+  txt += `프로젝트: ${title}\n`;
+  txt += `참조 영상: ${yt}\n`;
+  txt += `규격: 1080x1920 (9:16), 상/하단 250px 세이프존 유지\n\n`;
+  txt += `--- 시퀀스 타임코드 ---\n`;
+  txt += `[00:00 - 00:04] 01 HOOK: ${cards[0].title.replace(/\n/g, ' ')}\n`;
+  txt += `[00:04 - 00:12] 02 CAST/STORY: ${cards[1].desc.slice(0, 50)}\n`;
+  txt += `[00:12 - 00:22] 03 CLIMAX: ${cards[2].desc.slice(0, 50)}\n`;
+  txt += `[00:22 - 00:30] 04 OUTRO/CTA: 개봉일 및 댓글 유도\n`;
+
+  const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `reels_cutlist.txt`;
+  a.click();
 }
 
 renderCards();
